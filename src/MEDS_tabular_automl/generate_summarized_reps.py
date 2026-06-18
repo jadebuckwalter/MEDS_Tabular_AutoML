@@ -42,7 +42,7 @@ def sparse_aggregate(sparse_matrix: sparray, agg: str) -> np.ndarray | coo_array
     elif agg == "last":
         csc = csc_array(sparse_matrix)
         csc.sort_indices()
-        num_cols = csc.shape
+        num_cols = csc.shape[1]
         last_values = np.zeros(num_cols, dtype=sparse_matrix.dtype)
         for col_idx in range(num_cols):
             start_ptr = csc.indptr[col_idx]
