@@ -44,11 +44,11 @@ def sparse_aggregate(sparse_matrix: sparray, agg: str) -> np.ndarray | coo_array
         csc.sort_indices()
         num_cols = csc.shape
         last_values = np.zeros(num_cols, dtype=sparse_matrix.dtype)
-        col_counts = np.diff(csc.indptr)
-        active_cols = np.where(col_counts > 0)
-        if len(active_cols) > 0:
-            last_data_indices = csc.indptr[active_cols + 1] - 1
-            last_values[active_cols] = csc.data[last_data_indices]
+        for col_idx in range(num_cols):
+            start_ptr = csc.indptr[col_idx]
+            end_ptr = csc.indptr[col_idx + 1]
+            if end_ptr > start_ptr:
+                last_values[col_idx] = csc.data[end_ptr - 1]
         merged_matrix = last_values
     else:
         raise ValueError(f"Aggregation method '{agg}' not implemented.")
