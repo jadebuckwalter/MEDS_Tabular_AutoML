@@ -22,6 +22,7 @@ VALUE_AGGREGATIONS = [
     "value/has_values_count",
     "value/sum",
     "value/sum_sqd",
+    "value/last",
     "value/min",
     "value/max",
 ]

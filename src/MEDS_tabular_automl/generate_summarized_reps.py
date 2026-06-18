@@ -39,6 +39,15 @@ def sparse_aggregate(sparse_matrix: sparray, agg: str) -> np.ndarray | coo_array
         merged_matrix = sparse_matrix.power(2).sum(axis=0, dtype=sparse_matrix.dtype)
     elif agg == "count":
         merged_matrix = np.diff(csc_array(sparse_matrix).indptr)
+    elif agg == "last":
+        csc = csc_array(sparse_matrix)
+        csc.sort_indices()
+        num_cols = csc.shape
+        last_values = np.zeros(num_cols, dtype=csc.dtype)
+        has_elements = np.diff(csc.indptr) > 0
+        last_data_indices = csc.indptr[1:][has_elements] - 1
+        last_values[has_elements] = csc.data[last_data_indices]
+        merged_matrix = last_values
     else:
         raise ValueError(f"Aggregation method '{agg}' not implemented.")
     return merged_matrix
