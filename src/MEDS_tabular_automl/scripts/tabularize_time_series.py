@@ -94,8 +94,10 @@ def main(
 
         def compute_fn(shard_df):
             # Load Sparse DataFrame
+            print(f"--- DEBUG: shard_df row count: {len(shard_df)}")
             index_df, sparse_matrix = get_flat_ts_rep(agg, feature_columns, shard_df)  # noqa: B023
 
+            print(f"--- DEBUG: sparse_matrix shape before windowing: {sparse_matrix.shape}")
             # Summarize data -- applying aggregations on a specific window size + aggregation combination
             summary_df = generate_summary(
                 feature_columns,
@@ -105,7 +107,7 @@ def main(
                 agg,  # noqa: B023
                 label_df,  # noqa: B023
             )
-
+            print(f"--- DEBUG: summary_df shape after windowing: {summary_df.shape}")
             if not summary_df.shape[1]:
                 raise ValueError("No data found in the summarized dataframe.")
 
