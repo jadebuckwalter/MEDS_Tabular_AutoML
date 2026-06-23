@@ -94,7 +94,7 @@ def main(
 
         def compute_fn(shard_df):
             # Load Sparse DataFrame
-            print(f"--- DEBUG: shard_df row count: {len(shard_df)}")
+            print(f"--- DEBUG: shard_df row count: {shard_df.shape}")
             index_df, sparse_matrix = get_flat_ts_rep(agg, feature_columns, shard_df)  # noqa: B023
 
             print(f"--- DEBUG: sparse_matrix shape before windowing: {sparse_matrix.shape}")
