@@ -305,15 +305,14 @@ def compute_agg(
             f"❌ CRITICAL: Row mismatch! matrix has {matrix.shape} rows, but index_df has {index_count} rows."
         )
 
-    # Check sorting
-    is_sorted = (
-        index_df.select(
-            pl.col("subject_id").is_not_null()
-            & pl.col("time").is_sorted_by(["subject_id", "time"])
-        )
-        .collect()
-        .item()
-    )
+    # 1. First ensure there are no nulls in subject_id (returns a single boolean)
+    is_sorted = index_df.select(pl.col("subject_id").is_not_null().all()).collect().item()
+    
+    # 2. If it has no nulls, check if the frame is perfectly sorted by both columns
+    if is_sorted:
+        check_df = index_df.select(["subject_id", "time"]).collect()
+        is_sorted = check_df.equals(check_df.sort(["subject_id", "time"]))
+        
     print(f"Is index_df perfectly sorted? {is_sorted}")
     if not is_sorted:
         print(
