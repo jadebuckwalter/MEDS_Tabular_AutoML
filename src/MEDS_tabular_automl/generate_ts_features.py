@@ -101,7 +101,8 @@ def get_long_value_df(
     mapped_codes = [feature_name_to_code(col) for col in ts_columns]
     column_to_int = {code: i for i, code in enumerate(mapped_codes)}
     value_df = (
-        df.drop_nulls("numeric_value")
+        df.with_row_index("index")
+        .drop_nulls("numeric_value")
         .filter(pl.col("code").is_in(mapped_codes))
         .collect()
     )
@@ -117,6 +118,32 @@ def get_long_value_df(
         raise ValueError(f"numeric_value must be a numerical type. Instead it has type: {cols.dtype}")
     data = value_df.get_column("numeric_value").to_numpy()
     return data, (rows, cols)
+
+def debug_value_df(df: pl.LazyFrame, ts_columns: list[str]):
+    """Probe to find out why the value matrix is empty."""
+    mapped_codes = [feature_name_to_code(col) for col in ts_columns]
+    
+    # Materialize once just for debugging
+    df_eager = df.collect()
+    
+    print(f"--- DIAGNOSTICS ---")
+    print(f"1. Total rows in raw dataframe: {len(df_eager)}")
+    
+    # Check if 'numeric_value' is completely null
+    non_null_values = df_eager.drop_nulls("numeric_value")
+    print(f"2. Rows with non-null numeric_value: {len(non_null_values)}")
+    
+    # Check if our mapped codes actually exist in the 'code' column
+    unique_codes_in_data = df_eager.get_column("code").unique().to_list()
+    matching_codes = set(mapped_codes).intersection(set(unique_codes_in_data))
+    
+    print(f"3. Target codes from ts_columns (first 5): {mapped_codes[:5]}")
+    print(f"4. How many target codes actually exist in the data: {len(matching_codes)}")
+    
+    # Check the final combined filter
+    final_df = non_null_values.filter(pl.col("code").is_in(mapped_codes))
+    print(f"5. Final rows surviving both filters: {len(final_df)}")
+    print(f"-------------------")
 
 
 def summarize_dynamic_measurements(
@@ -149,6 +176,7 @@ def summarize_dynamic_measurements(
         data, (rows, cols) = get_long_code_df(code_df, ts_columns)
     elif agg in VALUE_AGGREGATIONS:
         value_df = df.drop(*id_cols)
+        debug_value_df(value_df, ts_columns)
         data, (rows, cols) = get_long_value_df(value_df, ts_columns)
 
     sp_matrix = csr_array(
