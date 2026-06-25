@@ -250,7 +250,7 @@ def aggregate_matrix(
     if len(data):
         row = row.astype(get_min_dtype(row), copy=False)
         col = col.astype(get_min_dtype(col), copy=False)
-        data = data.astype(get_min_dtype(data), copy=False)
+        data = data.astype(np.int64, copy=False)
     out_matrix = csr_array(
         (data, (row, col)),
         shape=(windows.shape[0], num_features),
