@@ -65,24 +65,51 @@ def get_long_code_df(
     return data, (rows, cols)
 
 
+# def get_long_value_df(
+#     df: pl.LazyFrame, ts_columns: list[str]
+# ) -> tuple[np.ndarray, tuple[np.ndarray, np.ndarray]]:
+#     """Pivots the numerical value data frame to a long format for time-series data.
+
+#     Args:
+#         df: The LazyFrame containing the numerical value data.
+#         ts_columns: The list of time-series columns that have numerical values.
+
+#     Returns:
+#         A tuple containing the data (numerical values), and a tuple of row and column indices for
+#         the CSR sparse matrix.
+#     """
+#     column_to_int = {feature_name_to_code(col): i for i, col in enumerate(ts_columns)}
+#     value_df = df.with_row_index("index").drop_nulls("numeric_value").filter(pl.col("code").is_in(ts_columns))
+#     rows = value_df.select(pl.col("index")).collect().to_series().to_numpy()
+#     cols = (
+#         value_df.with_columns(pl.col("code").cast(str).replace(column_to_int).cast(int).alias("value_index"))
+#         .select("value_index")
+#         .collect()
+#         .to_series()
+#         .to_numpy()
+#     )
+#     if not np.issubdtype(cols.dtype, np.number):
+#         raise ValueError(f"numeric_value must be a numerical type. Instead it has type: {cols.dtype}")
+
+#     data = value_df.select(pl.col("numeric_value")).collect().to_series().to_numpy()
+#     return data, (rows, cols)
+
+
 def get_long_value_df(
     df: pl.LazyFrame, ts_columns: list[str]
 ) -> tuple[np.ndarray, tuple[np.ndarray, np.ndarray]]:
-    """Pivots the numerical value data frame to a long format for time-series data.
-
-    Args:
-        df: The LazyFrame containing the numerical value data.
-        ts_columns: The list of time-series columns that have numerical values.
-
-    Returns:
-        A tuple containing the data (numerical values), and a tuple of row and column indices for
-        the CSR sparse matrix.
-    """
-    column_to_int = {feature_name_to_code(col): i for i, col in enumerate(ts_columns)}
-    value_df = df.with_row_index("index").drop_nulls("numeric_value").filter(pl.col("code").is_in(ts_columns))
+    mapped_codes = [feature_name_to_code(col) for col in ts_columns]
+    column_to_int = {code: i for i, code in enumerate(mapped_codes)}
+    value_df = (
+        df.with_row_index("index")
+        .drop_nulls("numeric_value")
+        .filter(pl.col("code").is_in(mapped_codes))
+    )
     rows = value_df.select(pl.col("index")).collect().to_series().to_numpy()
     cols = (
-        value_df.with_columns(pl.col("code").cast(str).replace(column_to_int).cast(int).alias("value_index"))
+        value_df.with_columns(
+            pl.col("code").cast(str).replace(column_to_int).cast(int).alias("value_index")
+        )
         .select("value_index")
         .collect()
         .to_series()
@@ -90,7 +117,6 @@ def get_long_value_df(
     )
     if not np.issubdtype(cols.dtype, np.number):
         raise ValueError(f"numeric_value must be a numerical type. Instead it has type: {cols.dtype}")
-
     data = value_df.select(pl.col("numeric_value")).collect().to_series().to_numpy()
     return data, (rows, cols)
 
