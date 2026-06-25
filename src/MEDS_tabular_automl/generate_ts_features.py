@@ -99,42 +99,24 @@ def get_long_value_df(
     df: pl.LazyFrame, ts_columns: list[str]
 ) -> tuple[np.ndarray, tuple[np.ndarray, np.ndarray]]:
     mapped_codes = [feature_name_to_code(col) for col in ts_columns]
-    # 1. Map raw columns to their expected code values first
-    mapped_codes = [feature_name_to_code(col) for col in ts_columns]
-    
-    # 🔍 DIAGNOSTIC BLOCK: Let's see the string mismatch
-    print("=" * 50)
-    print("🧬 VOCABULARY ALIGNMENT CHECK")
-    print("=" * 50)
-    df_codes = df.select("code").drop_nulls().unique().collect().to_series().to_list()
-    
-    print(f"What the columns expect (mapped_codes) [Sample of 5]:")
-    print(mapped_codes[:5])
-    print(f"What the DataFrame actually has (df_codes) [Sample of 5]:")
-    print(df_codes[:5])
-    
-    overlap = set(mapped_codes).intersection(set(df_codes))
-    print(f"Total matching codes found: {len(overlap)} out of {len(mapped_codes)}")
-    print("=" * 50)
     column_to_int = {code: i for i, code in enumerate(mapped_codes)}
     value_df = (
         df.with_row_index("index")
         .drop_nulls("numeric_value")
         .filter(pl.col("code").is_in(mapped_codes))
+        .collect()
     )
-    rows = value_df.select(pl.col("index")).collect().to_series().to_numpy()
+    rows = value_df.get_column("index").to_numpy()
     cols = (
         value_df.with_columns(
             pl.col("code").cast(str).replace(column_to_int).cast(int).alias("value_index")
         )
-        .select("value_index")
-        .collect()
-        .to_series()
+        .get_column("value_index")
         .to_numpy()
     )
     if not np.issubdtype(cols.dtype, np.number):
         raise ValueError(f"numeric_value must be a numerical type. Instead it has type: {cols.dtype}")
-    data = value_df.select(pl.col("numeric_value")).collect().to_series().to_numpy()
+    data = value_df.get_column("numeric_value").to_numpy()
     return data, (rows, cols)
 
 
