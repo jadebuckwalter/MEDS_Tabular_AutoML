@@ -101,8 +101,7 @@ def get_long_value_df(
     mapped_codes = [feature_name_to_code(col) for col in ts_columns]
     column_to_int = {code: i for i, code in enumerate(mapped_codes)}
     value_df = (
-        df.with_row_index("index")
-        .drop_nulls("numeric_value")
+        df.drop_nulls("numeric_value")
         .filter(pl.col("code").is_in(mapped_codes))
         .collect()
     )
