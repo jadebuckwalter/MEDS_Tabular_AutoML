@@ -323,39 +323,37 @@ def write_df(
         raise TypeError(f"Unsupported type for df: {type(df)}")
 
 
-# def get_events_df(shard_df: pl.LazyFrame, feature_columns) -> pl.LazyFrame:
-#     """Extracts and filters an Events LazyFrame with one row per observation (times can be duplicated).
-
-#     Args:
-#         shard_df: The LazyFrame shard from which to extract events.
-#         feature_columns: The columns that define features used to filter the LazyFrame.
-
-#     Returns:
-#         A LazyFrame where each row corresponds to an event, filtered by feature columns.
-#     """
-#     # Filter out feature_columns that were not present in the training set
-#     raw_feature_columns = ["/".join(c.split("/")[:-1]) for c in feature_columns]
-#     shard_df = shard_df.filter(pl.col("code").is_in(raw_feature_columns))
-#     # Drop rows with missing time or code to get events
-#     ts_shard_df = shard_df.drop_nulls(subset=["time", "code"])
-#     return ts_shard_df
-
-
 def get_events_df(shard_df: pl.LazyFrame, feature_columns) -> pl.LazyFrame:
-    raw_feature_columns = []
-    print(
-        shard_df.filter(pl.col("code") == "LAB//50931//mg/dL/value")
-        .drop_nulls(subset=["numeric_value"]) # Change to your actual value column name
-        .head(10)
-    )
-    for c in feature_columns:
-        if c.endswith("/value") or c.endswith("/code") or c.endswith("/present"):
-            raw_feature_columns.append("/".join(c.split("/")[:-1]))
-        else:
-            raw_feature_columns.append(c)
+    """Extracts and filters an Events LazyFrame with one row per observation (times can be duplicated).
+
+    Args:
+        shard_df: The LazyFrame shard from which to extract events.
+        feature_columns: The columns that define features used to filter the LazyFrame.
+
+    Returns:
+        A LazyFrame where each row corresponds to an event, filtered by feature columns.
+    """
+    print("FEATURE COLUMNS: ", feature_columns)
+    # Filter out feature_columns that were not present in the training set
+    raw_feature_columns = ["/".join(c.split("/")[:-1]) for c in feature_columns]
+    print("RAW FEATURE COLUMNS: ", raw_feature_columns)
     shard_df = shard_df.filter(pl.col("code").is_in(raw_feature_columns))
+    print("SHARD DF: ", shard_df)
+    # Drop rows with missing time or code to get events
     ts_shard_df = shard_df.drop_nulls(subset=["time", "code"])
     return ts_shard_df
+
+
+# def get_events_df(shard_df: pl.LazyFrame, feature_columns) -> pl.LazyFrame:
+#     raw_feature_columns = []
+#     for c in feature_columns:
+#         if c.endswith("/value") or c.endswith("/code") or c.endswith("/present"):
+#             raw_feature_columns.append("/".join(c.split("/")[:-1]))
+#         else:
+#             raw_feature_columns.append(c)
+#     shard_df = shard_df.filter(pl.col("code").is_in(raw_feature_columns))
+#     ts_shard_df = shard_df.drop_nulls(subset=["time", "code"])
+#     return ts_shard_df
 
 
 def get_unique_time_events_df(events_df: pl.LazyFrame) -> pl.LazyFrame:
