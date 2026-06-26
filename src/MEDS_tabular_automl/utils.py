@@ -334,6 +334,12 @@ def get_events_df(shard_df: pl.LazyFrame, feature_columns) -> pl.LazyFrame:
         A LazyFrame where each row corresponds to an event, filtered by feature columns.
     """
     value_features = [c for c in feature_columns if "/value" in c]
+    value_max_features = [c for c in feature_columns if "/value/max" in c]
+
+    if value_max_features:
+        print("VALUE MAX EXISTS")
+    else:
+        print("NOOOOOOOOOOOOO")
     
     if value_features:
         print("\n--- DEBUG: ISOLATING /VALUE COLUMNS ---")
