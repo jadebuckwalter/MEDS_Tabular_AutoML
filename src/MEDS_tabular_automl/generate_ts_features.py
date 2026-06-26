@@ -145,7 +145,10 @@ def summarize_dynamic_measurements(
     """
     logger.info("Generating Sparse matrix for Time Series Features")
     id_cols = ["subject_id", "time"]
-    eager_df = df.collect().with_row_index("global_index")
+    if isinstance(df, pl.LazyFrame):
+        eager_df = df.collect().with_row_index("global_index")
+    else:
+        eager_df = df.with_row_index("global_index")
     check_df = eager_df.select(id_cols)
     if not check_df.sort(by=id_cols).equals(check_df):
         raise ValueError("data frame must be sorted by subject_id and time")
