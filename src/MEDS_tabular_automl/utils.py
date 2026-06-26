@@ -348,6 +348,7 @@ def get_events_df(shard_df: pl.LazyFrame, feature_columns) -> pl.LazyFrame:
     shard_df = shard_df.filter(pl.col("code").is_in(raw_feature_columns))
     # Drop rows with missing time or code to get events
     ts_shard_df = shard_df.drop_nulls(subset=["time", "code"])
+    print(ts_shard_df.select(["code", "numeric_value"]).drop_nulls(subset=["numeric_value"]).collect().head(5))
     return ts_shard_df
 
 
