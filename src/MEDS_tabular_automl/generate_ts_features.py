@@ -120,23 +120,53 @@ def get_long_value_df(
     return data, (rows, cols)
 
 
+# def summarize_dynamic_measurements(
+#     agg: str,
+#     ts_columns: list[str],
+#     df: pl.LazyFrame,
+# ) -> tuple[pl.DataFrame, csr_array]:
+#     """Summarizes dynamic measurements for feature columns that are marked as 'dynamic'.
+
+#     Args:
+#         agg: The aggregation method, either from CODE_AGGREGATIONS or VALUE_AGGREGATIONS.
+#         ts_columns: The list of time-series feature columns.
+#         df: The LazyFrame from which features will be extracted and summarized.
+
+#     Returns:
+#         A tuple containing a DataFrame with dynamic feature identifiers and a sparse matrix
+#         of aggregated values.
+#     """
+#     logger.info("Generating Sparse matrix for Time Series Features")
+#     id_cols = ["subject_id", "time"]
+
+#     # Confirm dataframe is sorted
+#     check_df = df.select(pl.col(id_cols))
+#     if not check_df.sort(by=id_cols).collect().equals(check_df.collect()):
+#         raise ValueError("data frame must be sorted by subject_id and time")
+
+#     # Generate sparse matrix
+#     if agg in CODE_AGGREGATIONS:
+#         code_df = df.drop(*([*id_cols, "numeric_value"]))
+#         data, (rows, cols) = get_long_code_df(code_df, ts_columns)
+#     elif agg in VALUE_AGGREGATIONS:
+#         value_df = df.drop(*id_cols)
+#         data, (rows, cols) = get_long_value_df(value_df, ts_columns)
+
+#     sp_matrix = csr_array(
+#         (data, (rows, cols)),
+#         shape=(df.select(pl.len()).collect().item(), len(ts_columns)),
+#     )
+#     return df.select(pl.col(id_cols)), sp_matrix
+
 def summarize_dynamic_measurements(
     agg: str,
     ts_columns: list[str],
-    df: pl.LazyFrame,
-) -> tuple[pl.DataFrame, csr_array]:
-    """Summarizes dynamic measurements for feature columns that are marked as 'dynamic'.
-
-    Args:
-        agg: The aggregation method, either from CODE_AGGREGATIONS or VALUE_AGGREGATIONS.
-        ts_columns: The list of time-series feature columns.
-        df: The LazyFrame from which features will be extracted and summarized.
-
-    Returns:
-        A tuple containing a DataFrame with dynamic feature identifiers and a sparse matrix
-        of aggregated values.
-    """
+    df: pl.LazyFrame | pl.DataFrame,
+) -> tuple[pl.DataFrame | pl.LazyFrame, csr_array]:
+    """Summarizes dynamic measurements..."""
     logger.info("Generating Sparse matrix for Time Series Features")
+    if isinstance(df, pl.DataFrame):
+        df = df.lazy()
     id_cols = ["subject_id", "time"]
 
     # Confirm dataframe is sorted
@@ -176,6 +206,8 @@ def get_flat_ts_rep(
         both code and value representations. and a sparse matrix of the flat time series data.
     """
     # Remove codes not in training set
+    if isinstance(shard_df, pl.DataFrame):
+        shard_df = shard_df.lazy()
     shard_df1 = get_events_df(shard_df, feature_columns)
     ts_columns = get_feature_names(agg, feature_columns)
     return summarize_dynamic_measurements(agg, ts_columns, shard_df1)
