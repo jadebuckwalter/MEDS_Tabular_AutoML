@@ -101,13 +101,19 @@ def get_long_value_df(
     mapped_codes = [feature_name_to_code(col) for col in ts_columns]
     column_to_int = {code: i for i, code in enumerate(mapped_codes)}
     value_df = (
-        df.with_row_index("index")
-        .drop_nulls("numeric_value")
+        df.drop_nulls("numeric_value")
         .filter(pl.col("code").is_in(mapped_codes))
-        .collect()
     )
-    print(f"DEBUG: cols={len(ts_columns)} | keys={len(column_to_int)} | rows={len(value_df)}")
-    rows = value_df.get_column("index").to_numpy()
+    rows = value_df.get_column("global_index").to_numpy()
+    # mapped_codes = [feature_name_to_code(col) for col in ts_columns]
+    # column_to_int = {code: i for i, code in enumerate(mapped_codes)}
+    # value_df = (
+    #     df.with_row_index("index")
+    #     .drop_nulls("numeric_value")
+    #     .filter(pl.col("code").is_in(mapped_codes))
+    #     .collect()
+    # )
+    # rows = value_df.get_column("index").to_numpy()
     cols = (
         value_df.with_columns(
             pl.col("code").cast(str).replace(column_to_int).cast(int).alias("value_index")
@@ -118,8 +124,6 @@ def get_long_value_df(
     if not np.issubdtype(cols.dtype, np.number):
         raise ValueError(f"numeric_value must be a numerical type. Instead it has type: {cols.dtype}")
     data = value_df.get_column("numeric_value").to_numpy()
-    if not np.issubdtype(data.dtype, np.number):
-        raise ValueError(f"numeric_value must be a numerical type. Instead it has type: {data.dtype}")
     return data, (rows, cols)
 
 
@@ -141,25 +145,45 @@ def summarize_dynamic_measurements(
     """
     logger.info("Generating Sparse matrix for Time Series Features")
     id_cols = ["subject_id", "time"]
-
-    # Confirm dataframe is sorted
-    check_df = df.select(pl.col(id_cols))
-    if not check_df.sort(by=id_cols).collect().equals(check_df.collect()):
+    eager_df = df.collect().with_row_index("global_index")
+    check_df = eager_df.select(id_cols)
+    if not check_df.sort(by=id_cols).equals(check_df):
         raise ValueError("data frame must be sorted by subject_id and time")
 
-    # Generate sparse matrix
     if agg in CODE_AGGREGATIONS:
-        code_df = df.drop(*([*id_cols, "numeric_value"]))
+        code_df = eager_df.drop(*([*id_cols, "numeric_value"]))
         data, (rows, cols) = get_long_code_df(code_df, ts_columns)
     elif agg in VALUE_AGGREGATIONS:
-        value_df = df.drop(*id_cols)
+        value_df = eager_df.drop(*id_cols)
         data, (rows, cols) = get_long_value_df(value_df, ts_columns)
 
     sp_matrix = csr_array(
         (data, (rows, cols)),
-        shape=(df.select(pl.len()).collect().item(), len(ts_columns)),
+        shape=(len(eager_df), len(ts_columns)),
     )
-    return df.select(pl.col(id_cols)), sp_matrix
+    
+    return eager_df.select(id_cols), sp_matrix
+    # logger.info("Generating Sparse matrix for Time Series Features")
+    # id_cols = ["subject_id", "time"]
+
+    # # Confirm dataframe is sorted
+    # check_df = df.select(pl.col(id_cols))
+    # if not check_df.sort(by=id_cols).collect().equals(check_df.collect()):
+    #     raise ValueError("data frame must be sorted by subject_id and time")
+
+    # # Generate sparse matrix
+    # if agg in CODE_AGGREGATIONS:
+    #     code_df = df.drop(*([*id_cols, "numeric_value"]))
+    #     data, (rows, cols) = get_long_code_df(code_df, ts_columns)
+    # elif agg in VALUE_AGGREGATIONS:
+    #     value_df = df.drop(*id_cols)
+    #     data, (rows, cols) = get_long_value_df(value_df, ts_columns)
+
+    # sp_matrix = csr_array(
+    #     (data, (rows, cols)),
+    #     shape=(df.select(pl.len()).collect().item(), len(ts_columns)),
+    # )
+    # return df.select(pl.col(id_cols)), sp_matrix
 
 
 def get_flat_ts_rep(
