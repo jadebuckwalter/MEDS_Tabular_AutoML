@@ -106,10 +106,7 @@ def get_long_value_df(
         .filter(pl.col("code").is_in(mapped_codes))
         .collect()
     )
-    print("DEBUG: column_to_int mapping ->", column_to_int)
-    print("DEBUG: value_df shape after filter ->", value_df.shape)
-    if value_df.shape > 0:
-        print("DEBUG: Sample value_index array ->", value_df.with_columns(pl.col("code").cast(str).replace(column_to_int).cast(int).alias("value_index")).get_column("value_index").head().to_list())
+    print(f"DEBUG: cols={len(ts_columns)} | keys={len(column_to_int)} | rows={len(value_df)}")
     rows = value_df.get_column("index").to_numpy()
     cols = (
         value_df.with_columns(
