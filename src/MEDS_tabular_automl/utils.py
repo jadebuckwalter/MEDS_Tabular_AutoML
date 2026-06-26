@@ -333,12 +333,12 @@ def get_events_df(shard_df: pl.LazyFrame, feature_columns) -> pl.LazyFrame:
     Returns:
         A LazyFrame where each row corresponds to an event, filtered by feature columns.
     """
-    print("FEATURE COLUMNS: ", feature_columns)
+    print("FEATURE COLUMNS: ", feature_columns[:10])
     # Filter out feature_columns that were not present in the training set
     raw_feature_columns = ["/".join(c.split("/")[:-1]) for c in feature_columns]
-    print("RAW FEATURE COLUMNS: ", raw_feature_columns)
+    print("RAW FEATURE COLUMNS: ", raw_feature_columns[:10])
     shard_df = shard_df.filter(pl.col("code").is_in(raw_feature_columns))
-    print("SHARD DF: ", shard_df)
+    print("SHARD DF: ", shard_df.head(10))
     # Drop rows with missing time or code to get events
     ts_shard_df = shard_df.drop_nulls(subset=["time", "code"])
     return ts_shard_df
