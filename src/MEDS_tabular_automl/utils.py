@@ -333,41 +333,12 @@ def get_events_df(shard_df: pl.LazyFrame, feature_columns) -> pl.LazyFrame:
     Returns:
         A LazyFrame where each row corresponds to an event, filtered by feature columns.
     """
-    value_features = [c for c in feature_columns if "/value" in c]
-    value_max_features = [c for c in feature_columns if "/value/max" in c]
-
-    if value_max_features:
-        print("VALUE MAX EXISTS")
-    else:
-        print("NOOOOOOOOOOOOO")
-    
-    if value_features:
-        print("\n--- DEBUG: ISOLATING /VALUE COLUMNS ---")
-        sample_values = value_features[:5]
-        print(f"ORIGINAL FEATURE COLUMNS:\n {sample_values}")
-        
-        current_logic_output = ["/".join(c.split("/")[:-1]) for c in sample_values]
-        print(f"\nWHAT [:-1] TURNS THEM INTO:\n {current_logic_output}")
-        print("---------------------------------------\n")
     # Filter out feature_columns that were not present in the training set
     raw_feature_columns = ["/".join(c.split("/")[:-1]) for c in feature_columns]
     shard_df = shard_df.filter(pl.col("code").is_in(raw_feature_columns))
     # Drop rows with missing time or code to get events
     ts_shard_df = shard_df.drop_nulls(subset=["time", "code"])
-    print(ts_shard_df.select(["code", "numeric_value"]).drop_nulls(subset=["numeric_value"]).collect().head(5))
     return ts_shard_df
-
-
-# def get_events_df(shard_df: pl.LazyFrame, feature_columns) -> pl.LazyFrame:
-#     raw_feature_columns = []
-#     for c in feature_columns:
-#         if c.endswith("/value") or c.endswith("/code") or c.endswith("/present"):
-#             raw_feature_columns.append("/".join(c.split("/")[:-1]))
-#         else:
-#             raw_feature_columns.append(c)
-#     shard_df = shard_df.filter(pl.col("code").is_in(raw_feature_columns))
-#     ts_shard_df = shard_df.drop_nulls(subset=["time", "code"])
-#     return ts_shard_df
 
 
 def get_unique_time_events_df(events_df: pl.LazyFrame) -> pl.LazyFrame:

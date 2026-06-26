@@ -106,6 +106,10 @@ def get_long_value_df(
         .filter(pl.col("code").is_in(mapped_codes))
         .collect()
     )
+    print("DEBUG: column_to_int mapping ->", column_to_int)
+    print("DEBUG: value_df shape after filter ->", value_df.shape)
+    if value_df.shape > 0:
+        print("DEBUG: Sample value_index array ->", value_df.with_columns(pl.col("code").cast(str).replace(column_to_int).cast(int).alias("value_index")).get_column("value_index").head().to_list())
     rows = value_df.get_column("index").to_numpy()
     cols = (
         value_df.with_columns(
@@ -176,6 +180,6 @@ def get_flat_ts_rep(
         both code and value representations. and a sparse matrix of the flat time series data.
     """
     # Remove codes not in training set
-    shard_df = get_events_df(shard_df, feature_columns)
+    shard_df1 = get_events_df(shard_df, feature_columns)
     ts_columns = get_feature_names(agg, feature_columns)
-    return summarize_dynamic_measurements(agg, ts_columns, shard_df)
+    return summarize_dynamic_measurements(agg, ts_columns, shard_df1)
