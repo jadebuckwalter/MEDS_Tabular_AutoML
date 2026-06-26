@@ -37,48 +37,31 @@ def feature_name_to_code(feature_name: str) -> str:
     return "/".join(feature_name.split("/")[:-1])
 
 
-# def get_long_code_df(
-#     df: pl.LazyFrame, ts_columns: list[str]
-# ) -> tuple[np.ndarray, tuple[np.ndarray, np.ndarray]]:
-#     """Pivots the codes data frame to a long format one-hot representation for time-series data.
-
-#     Args:
-#         df: The LazyFrame containing the code data.
-#         ts_columns: The list of time-series columns to include in the output.
-
-#     Returns:
-#         A tuple containing the data (1s for presence), and a tuple of row and column indices for
-#         the CSR sparse matrix.
-#     """
-#     column_to_int = {feature_name_to_code(col): i for i, col in enumerate(ts_columns)}
-#     rows = range(df.select(pl.len()).collect().item())
-#     cols = (
-#         df.with_columns(pl.col("code").cast(str).replace(column_to_int).cast(int).alias("code_index"))
-#         .select("code_index")
-#         .collect()
-#         .to_series()
-#         .to_numpy()
-#     )
-#     if not np.issubdtype(cols.dtype, np.number):
-#         raise ValueError(f"numeric_value must be a numerical type. Instead it has type: {cols.dtype}")
-#     data = np.ones(df.select(pl.len()).collect().item(), dtype=np.bool_)
-#     return data, (rows, cols)
-
 def get_long_code_df(
-    df: pl.DataFrame, ts_columns: list[str]
+    df: pl.LazyFrame, ts_columns: list[str]
 ) -> tuple[np.ndarray, tuple[np.ndarray, np.ndarray]]:
-    mapped_codes = [feature_name_to_code(col) for col in ts_columns]
-    column_to_int = {code: i for i, code in enumerate(mapped_codes)}
-    code_df = df.filter(pl.col("code").is_in(mapped_codes))
-    rows = code_df.get_column("global_index").to_numpy()
+    """Pivots the codes data frame to a long format one-hot representation for time-series data.
+
+    Args:
+        df: The LazyFrame containing the code data.
+        ts_columns: The list of time-series columns to include in the output.
+
+    Returns:
+        A tuple containing the data (1s for presence), and a tuple of row and column indices for
+        the CSR sparse matrix.
+    """
+    column_to_int = {feature_name_to_code(col): i for i, col in enumerate(ts_columns)}
+    rows = range(df.select(pl.len()).collect().item())
     cols = (
-        code_df.with_columns(
-            pl.col("code").cast(str).replace(column_to_int).cast(int).alias("code_index")
-        )
-        .get_column("code_index")
+        df.with_columns(pl.col("code").cast(str).replace(column_to_int).cast(int).alias("code_index"))
+        .select("code_index")
+        .collect()
+        .to_series()
         .to_numpy()
     )
-    data = np.ones(len(code_df), dtype=np.float32)
+    if not np.issubdtype(cols.dtype, np.number):
+        raise ValueError(f"numeric_value must be a numerical type. Instead it has type: {cols.dtype}")
+    data = np.ones(df.select(pl.len()).collect().item(), dtype=np.bool_)
     return data, (rows, cols)
 
 
@@ -112,40 +95,18 @@ def get_long_code_df(
 #     return data, (rows, cols)
 
 
-# def get_long_value_df(
-#     df: pl.LazyFrame, ts_columns: list[str]
-# ) -> tuple[np.ndarray, tuple[np.ndarray, np.ndarray]]:
-#     mapped_codes = [feature_name_to_code(col) for col in ts_columns]
-#     column_to_int = {code: i for i, code in enumerate(mapped_codes)}
-#     value_df = (
-#         df.with_row_index("index")
-#         .drop_nulls("numeric_value")
-#         .filter(pl.col("code").is_in(mapped_codes))
-#         .collect()
-#     )
-#     rows = value_df.get_column("index").to_numpy()
-#     cols = (
-#         value_df.with_columns(
-#             pl.col("code").cast(str).replace(column_to_int).cast(int).alias("value_index")
-#         )
-#         .get_column("value_index")
-#         .to_numpy()
-#     )
-#     if not np.issubdtype(cols.dtype, np.number):
-#         raise ValueError(f"numeric_value must be a numerical type. Instead it has type: {cols.dtype}")
-#     data = value_df.get_column("numeric_value").to_numpy()
-#     return data, (rows, cols)
-
 def get_long_value_df(
-    df: pl.DataFrame, ts_columns: list[str]
+    df: pl.LazyFrame, ts_columns: list[str]
 ) -> tuple[np.ndarray, tuple[np.ndarray, np.ndarray]]:
     mapped_codes = [feature_name_to_code(col) for col in ts_columns]
     column_to_int = {code: i for i, code in enumerate(mapped_codes)}
     value_df = (
-        df.drop_nulls("numeric_value")
+        df.with_row_index("index")
+        .drop_nulls("numeric_value")
         .filter(pl.col("code").is_in(mapped_codes))
+        .collect()
     )
-    rows = value_df.get_column("global_index").to_numpy()
+    rows = value_df.get_column("index").to_numpy()
     cols = (
         value_df.with_columns(
             pl.col("code").cast(str).replace(column_to_int).cast(int).alias("value_index")
@@ -159,69 +120,43 @@ def get_long_value_df(
     return data, (rows, cols)
 
 
-# def summarize_dynamic_measurements(
-#     agg: str,
-#     ts_columns: list[str],
-#     df: pl.LazyFrame,
-# ) -> tuple[pl.DataFrame, csr_array]:
-#     """Summarizes dynamic measurements for feature columns that are marked as 'dynamic'.
-
-#     Args:
-#         agg: The aggregation method, either from CODE_AGGREGATIONS or VALUE_AGGREGATIONS.
-#         ts_columns: The list of time-series feature columns.
-#         df: The LazyFrame from which features will be extracted and summarized.
-
-#     Returns:
-#         A tuple containing a DataFrame with dynamic feature identifiers and a sparse matrix
-#         of aggregated values.
-#     """
-#     logger.info("Generating Sparse matrix for Time Series Features")
-#     id_cols = ["subject_id", "time"]
-
-#     # Confirm dataframe is sorted
-#     check_df = df.select(pl.col(id_cols))
-#     if not check_df.sort(by=id_cols).collect().equals(check_df.collect()):
-#         raise ValueError("data frame must be sorted by subject_id and time")
-
-#     # Generate sparse matrix
-#     if agg in CODE_AGGREGATIONS:
-#         code_df = df.drop(*([*id_cols, "numeric_value"]))
-#         data, (rows, cols) = get_long_code_df(code_df, ts_columns)
-#     elif agg in VALUE_AGGREGATIONS:
-#         value_df = df.drop(*id_cols)
-#         data, (rows, cols) = get_long_value_df(value_df, ts_columns)
-
-#     sp_matrix = csr_array(
-#         (data, (rows, cols)),
-#         shape=(df.select(pl.len()).collect().item(), len(ts_columns)),
-#     )
-#     return df.select(pl.col(id_cols)), sp_matrix
-
-
 def summarize_dynamic_measurements(
     agg: str,
     ts_columns: list[str],
-    df: pl.LazyFrame | pl.DataFrame,
+    df: pl.LazyFrame,
 ) -> tuple[pl.DataFrame, csr_array]:
-    """Summarizes dynamic measurements for feature columns that are marked as 'dynamic'."""
+    """Summarizes dynamic measurements for feature columns that are marked as 'dynamic'.
+
+    Args:
+        agg: The aggregation method, either from CODE_AGGREGATIONS or VALUE_AGGREGATIONS.
+        ts_columns: The list of time-series feature columns.
+        df: The LazyFrame from which features will be extracted and summarized.
+
+    Returns:
+        A tuple containing a DataFrame with dynamic feature identifiers and a sparse matrix
+        of aggregated values.
+    """
     logger.info("Generating Sparse matrix for Time Series Features")
     id_cols = ["subject_id", "time"]
-    eager_df = df.collect() if isinstance(df, pl.LazyFrame) else df
-    indexed_df = eager_df.sort(id_cols).with_row_index("global_index")
+
+    # Confirm dataframe is sorted
+    check_df = df.select(pl.col(id_cols))
+    if not check_df.sort(by=id_cols).collect().equals(check_df.collect()):
+        raise ValueError("data frame must be sorted by subject_id and time")
+
+    # Generate sparse matrix
     if agg in CODE_AGGREGATIONS:
-        code_df = indexed_df.drop(*([*id_cols, "numeric_value"]))
+        code_df = df.drop(*([*id_cols, "numeric_value"]))
         data, (rows, cols) = get_long_code_df(code_df, ts_columns)
     elif agg in VALUE_AGGREGATIONS:
-        value_df = indexed_df.drop(*id_cols)
+        value_df = df.drop(*id_cols)
         data, (rows, cols) = get_long_value_df(value_df, ts_columns)
-    else:
-        raise ValueError(f"Unknown aggregation method: {agg}")
-    num_rows = len(indexed_df)
+
     sp_matrix = csr_array(
         (data, (rows, cols)),
-        shape=(num_rows, len(ts_columns)),
+        shape=(df.select(pl.len()).collect().item(), len(ts_columns)),
     )
-    return indexed_df.select(pl.col(id_cols)), sp_matrix
+    return df.select(pl.col(id_cols)), sp_matrix
 
 
 def get_flat_ts_rep(
