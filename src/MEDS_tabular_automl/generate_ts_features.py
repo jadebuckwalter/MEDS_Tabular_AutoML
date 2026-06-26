@@ -118,6 +118,8 @@ def get_long_value_df(
     if not np.issubdtype(cols.dtype, np.number):
         raise ValueError(f"numeric_value must be a numerical type. Instead it has type: {cols.dtype}")
     data = value_df.get_column("numeric_value").to_numpy()
+    if not np.issubdtype(data.dtype, np.number):
+        raise ValueError(f"numeric_value must be a numerical type. Instead it has type: {data.dtype}")
     return data, (rows, cols)
 
 
