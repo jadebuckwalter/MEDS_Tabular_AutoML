@@ -37,31 +37,58 @@ def feature_name_to_code(feature_name: str) -> str:
     return "/".join(feature_name.split("/")[:-1])
 
 
+# def get_long_code_df(
+#     df: pl.LazyFrame, ts_columns: list[str]
+# ) -> tuple[np.ndarray, tuple[np.ndarray, np.ndarray]]:
+#     """Pivots the codes data frame to a long format one-hot representation for time-series data.
+
+#     Args:
+#         df: The LazyFrame containing the code data.
+#         ts_columns: The list of time-series columns to include in the output.
+
+#     Returns:
+#         A tuple containing the data (1s for presence), and a tuple of row and column indices for
+#         the CSR sparse matrix.
+#     """
+#     column_to_int = {feature_name_to_code(col): i for i, col in enumerate(ts_columns)}
+#     rows = range(df.select(pl.len()).collect().item())
+#     cols = (
+#         df.with_columns(pl.col("code").cast(str).replace(column_to_int).cast(int).alias("code_index"))
+#         .select("code_index")
+#         .collect()
+#         .to_series()
+#         .to_numpy()
+#     )
+#     if not np.issubdtype(cols.dtype, np.number):
+#         raise ValueError(f"numeric_value must be a numerical type. Instead it has type: {cols.dtype}")
+#     data = np.ones(df.select(pl.len()).collect().item(), dtype=np.bool_)
+#     return data, (rows, cols)
+
+
 def get_long_code_df(
-    df: pl.LazyFrame, ts_columns: list[str]
+    df: pl.DataFrame, ts_columns: list[str]
 ) -> tuple[np.ndarray, tuple[np.ndarray, np.ndarray]]:
-    """Pivots the codes data frame to a long format one-hot representation for time-series data.
-
-    Args:
-        df: The LazyFrame containing the code data.
-        ts_columns: The list of time-series columns to include in the output.
-
-    Returns:
-        A tuple containing the data (1s for presence), and a tuple of row and column indices for
-        the CSR sparse matrix.
-    """
-    column_to_int = {feature_name_to_code(col): i for i, col in enumerate(ts_columns)}
-    rows = range(df.select(pl.len()).collect().item())
+    mapped_codes = [feature_name_to_code(col) for col in ts_columns]
+    column_to_int = {code: i for i, code in enumerate(mapped_codes)}
+    
+    # 1. No .collect() and no with_row_index() here
+    code_df = df.filter(pl.col("code").is_in(mapped_codes))
+    
+    # 2. Use the index locked in by the parent function
+    rows = code_df.get_column("global_index").to_numpy()
+    
+    # 3. The rest of your function remains the same
     cols = (
-        df.with_columns(pl.col("code").cast(str).replace(column_to_int).cast(int).alias("code_index"))
-        .select("code_index")
-        .collect()
-        .to_series()
+        code_df.with_columns(
+            pl.col("code").cast(str).replace(column_to_int).cast(int).alias("code_index")
+        )
+        .get_column("code_index")
         .to_numpy()
     )
-    if not np.issubdtype(cols.dtype, np.number):
-        raise ValueError(f"numeric_value must be a numerical type. Instead it has type: {cols.dtype}")
-    data = np.ones(df.select(pl.len()).collect().item(), dtype=np.bool_)
+    
+    # For code counts/presence, the data array is usually just ones
+    data = np.ones(len(code_df), dtype=np.float32) 
+    
     return data, (rows, cols)
 
 
