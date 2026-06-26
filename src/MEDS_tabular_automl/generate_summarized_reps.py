@@ -285,40 +285,6 @@ def compute_agg(
     Returns:
         The aggregated sparse matrix.
     """
-    # 🔍 Injected Diagnostic Block
-    print("=" * 50)
-    print("📊 COMPUTE_AGG INBOUND DIAGNOSTIC")
-    print("=" * 50)
-    print(f"Aggregation target: {agg}")
-    print(f"Matrix shape: {matrix.shape}")
-
-    if hasattr(matrix, "nnz"):
-        print(f"Matrix non-zero elements (nnz): {matrix.nnz}")
-        if matrix.nnz == 0:
-            print("❌ CRITICAL: Matrix is already empty/zero before aggregation even begins!")
-
-    # Check if index_df matches matrix length
-    index_count = index_df.select(pl.len()).collect().item()
-    print(f"index_df row count: {index_count}")
-    if index_count != matrix.shape:
-        print(
-            f"❌ CRITICAL: Row mismatch! matrix has {matrix.shape} rows, but index_df has {index_count} rows."
-        )
-
-    # 1. First ensure there are no nulls in subject_id (returns a single boolean)
-    is_sorted = index_df.select(pl.col("subject_id").is_not_null().all()).collect().item()
-    
-    # 2. If it has no nulls, check if the frame is perfectly sorted by both columns
-    if is_sorted:
-        check_df = index_df.select(["subject_id", "time"]).collect()
-        is_sorted = check_df.equals(check_df.sort(["subject_id", "time"]))
-        
-    print(f"Is index_df perfectly sorted? {is_sorted}")
-    if not is_sorted:
-        print(
-            "❌ CRITICAL: index_df is unsorted! min/max window indices will corrupt the matrix slices."
-        )
-    print("=" * 50)
     group_df = (
         index_df.with_row_index("index")
         .group_by(["subject_id", "time"], maintain_order=True)
