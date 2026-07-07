@@ -21,7 +21,9 @@ def sparse_aggregate(sparse_matrix: sparray, agg: str) -> np.ndarray | coo_array
 
     Args:
         sparse_matrix: The sparse matrix to aggregate.
-        agg: The aggregation method to apply, such as 'sum', 'min', 'max', 'sum_sqd', or 'count'.
+        agg: The aggregation method to apply, such as 'sum', 'min', 'max', 'sum_sqd', 'count', or 'last'.
+            'last' returns, per column, the value stored in the highest-index (i.e. most recent) row that
+            has a value for that column, assuming rows are ordered chronologically.
 
     Returns:
         The aggregated sparse matrix.
@@ -40,17 +42,15 @@ def sparse_aggregate(sparse_matrix: sparray, agg: str) -> np.ndarray | coo_array
     elif agg == "count":
         merged_matrix = np.diff(csc_array(sparse_matrix).indptr)
     elif agg == "last":
-        merged_matrix = sparse_matrix.max(axis=0)
-        # csc = csc_array(sparse_matrix)
-        # csc.sort_indices()
-        # num_cols = csc.shape[1]
-        # last_values = np.zeros(num_cols, dtype=csc.dtype)
-        # col_counts = np.diff(csc.indptr)
-        # active_cols = np.where(col_counts > 0)
-        # if len(active_cols) > 0:
-        #     last_data_indices = csc.indptr[active_cols + 1] - 1
-        #     last_values[active_cols] = csc.data[last_data_indices]
-        # merged_matrix = last_values
+        csc = csc_array(sparse_matrix)
+        csc.sort_indices()
+        num_cols = csc.shape[1]
+        merged_matrix = np.zeros(num_cols, dtype=csc.dtype)
+        col_counts = np.diff(csc.indptr)
+        active_cols = np.where(col_counts > 0)[0]
+        if len(active_cols) > 0:
+            last_data_indices = csc.indptr[active_cols + 1] - 1
+            merged_matrix[active_cols] = csc.data[last_data_indices]
     else:
         raise ValueError(f"Aggregation method '{agg}' not implemented.")
     return merged_matrix
@@ -222,6 +222,18 @@ def aggregate_matrix(
         array([[0., 0., 0.]])
         >>> aggregate_matrix(windows, matrix, 'count', num_features).toarray()
         array([[0., 0., 0.]])
+
+        'last' returns the most recent (highest-row-index) value per column, which can differ from 'max':
+        >>> last_matrix = coo_array(([3.0, 1.0, 2.0, 5.0], ([0, 1, 2, 1], [0, 0, 0, 1])), shape=(3, 2))
+        >>> last_matrix.toarray()
+        array([[3., 0.],
+               [1., 5.],
+               [2., 0.]])
+        >>> windows = pl.DataFrame({"min_index": [0], "max_index": [3]})
+        >>> aggregate_matrix(windows, last_matrix, 'max', 2).toarray()
+        array([[3., 5.]], dtype=float32)
+        >>> aggregate_matrix(windows, last_matrix, 'last', 2).toarray()
+        array([[2., 5.]], dtype=float32)
     """
     tqdm = load_tqdm(use_tqdm)
     agg = agg.split("/")[-1]
