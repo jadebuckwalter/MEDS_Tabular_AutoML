@@ -205,7 +205,11 @@ def aggregate_matrix(
         >>> aggregated_matrix.toarray()
         array([[3, 1, 0],
                [6, 1, 1],
-               [5, 0, 1]])
+               [5, 0, 1]], dtype=uint8)
+        >>> aggregate_matrix(windows, matrix, 'max', num_features).toarray()
+        array([[2, 1, 0],
+               [3, 1, 1],
+               [3, 0, 1]], dtype=uint8)
 
         >>> windows = pl.DataFrame({"min_index": [0], "max_index": [0]})
         >>> aggregate_matrix(windows, matrix, 'sum', num_features).toarray()
@@ -238,7 +242,7 @@ def aggregate_matrix(
         elif isinstance(agg_matrix, coo_array):
             col.append(agg_matrix.col)
             data.append(agg_matrix.data)
-            row.append(agg_matrix.row)
+            row.append(np.repeat(np.array(i, dtype=np.int32), len(agg_matrix.col)))
         else:
             raise TypeError(f"Invalid matrix type {type(agg_matrix)}")
     if len(row) == 0:
@@ -250,7 +254,10 @@ def aggregate_matrix(
     if len(data):
         row = row.astype(get_min_dtype(row), copy=False)
         col = col.astype(get_min_dtype(col), copy=False)
-        data = data.astype(np.int64, copy=False)
+        if agg == "count":
+            data = data.astype(np.int64, copy=False)
+        else:
+            data = data.astype(get_min_dtype(data), copy=False)
     out_matrix = csr_array(
         (data, (row, col)),
         shape=(windows.shape[0], num_features),
